@@ -26,3 +26,6 @@ class Deck:
 
     def draw_card(self):
         return self.deck.pop()
+
+def isValidCard(pile, card):
+    pass

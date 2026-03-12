@@ -1,11 +1,13 @@
-from Cards import Deck
+from pyparsing import empty
+
+from Cards import Deck, isValidCard
 from Player import Player
 
 class Game:
     def __init__(self):
-        self.deck = Deck()
+        self.current_deck = Deck()
         self.Players = []
-        self.discards_pile = []
+        self.current_pile = []
         self.current_player = 0
 
     def add_player(self, name):
@@ -19,7 +21,8 @@ class Game:
             for _ in range(6):
                 player.hand.append(self.deck.draw_card())
 
-
+    def checkIfBurn(self):
+        pass
 
 
     def choose_face_up_cards(self, player):
@@ -68,5 +71,25 @@ class Game:
 
         for card in chosen_cards:
             player.face_up.append(card)
+
+    def play_turn(self,player):
+        while True:
+            print("\nYour hand:")
+            player.show_hand()
+            print("pick a card")
+            card = input("Enter your card: ") ## TODO think about how can a player put multiply cards
+            if isValidCard(self.current_pile,player.hand[card]):
+                break
+            print("Not valid card, try again.")
+        self.current_pile.append(card)
+        if self.checkIfBurn(self.current_pile): ## TODO if yes redo turn
+            pass
+        if len(player.hand) < 3 and len(self.current_deck.deck) > 0:
+            player.hand.append(self.current_deck.draw_card())
+
+
+
+
+
 
 
