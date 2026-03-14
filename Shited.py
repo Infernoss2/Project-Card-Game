@@ -9,7 +9,7 @@ def main():
     game.add_player("Bot")
     start_players_amount = len(game.Players)
 
-    game.deck.shuffle()
+    game.current_deck.shuffle()
     game.deal_cards()
 
     for player in game.Players:

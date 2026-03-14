@@ -22,7 +22,12 @@ class Game:
                 player.hand.append(self.deck.draw_card())
 
     def checkIfBurn(self):
-        pass
+        if len(self.current_deck.deck) >= 4:
+            if self.current_deck.deck[0] == self.current_deck.deck[1] == self.current_deck.deck[2] == self.current_deck.deck[3]:
+                return True
+            else:
+                return False
+        return False
 
 
     def choose_face_up_cards(self, player):
@@ -76,14 +81,16 @@ class Game:
         while True:
             print("\nYour hand:")
             player.show_hand()
-            print("pick a card")
-            card = input("Enter your card: ") ## TODO think about how can a player put multiply cards
-            if isValidCard(self.current_pile,player.hand[card]):
+            print("pick a card index")
+            card_inex = input("Enter your card: ") ## TODO think about how can a player put multiply cards
+
+            if isValidCard(self.current_pile,player.hand[card_inex]):
                 break
             print("Not valid card, try again.")
-        self.current_pile.append(card)
-        if self.checkIfBurn(self.current_pile): ## TODO if yes redo turn
+        self.current_pile.append(player.hand[card_inex])
+        if self.checkIfBurn(self): ## TODO if yes redo turn
             pass
+
         if len(player.hand) < 3 and len(self.current_deck.deck) > 0:
             player.hand.append(self.current_deck.draw_card())
 
