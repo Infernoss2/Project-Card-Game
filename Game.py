@@ -17,9 +17,9 @@ class Game:
     def deal_cards(self):
         for player in self.Players:
             for _ in range(3):
-                player.face_down.append(self.deck.draw_card())
+                player.face_down.append(self.current_deck.draw_card())
             for _ in range(6):
-                player.hand.append(self.deck.draw_card())
+                player.hand.append(self.current_deck.draw_card())
 
     def checkIfBurn(self):
         if len(self.current_deck.deck) >= 4:
@@ -77,20 +77,45 @@ class Game:
         for card in chosen_cards:
             player.face_up.append(card)
 
+
     def play_turn(self,player):
-        while True:
-            print("\nYour hand:")
-            player.show_hand()
-            print("pick a card index")
-            card_inex = input("Enter your card: ") ## TODO think about how can a player put multiply cards
-
-            if isValidCard(self.current_pile,player.hand[card_inex]):
+        has_valid_card = False
+        for card in player.hand:
+            if isValidCard(self.current_pile, card):
+                has_valid_card = True
                 break
-            print("Not valid card, try again.")
-        self.current_pile.append(player.hand[card_inex])
-        if self.checkIfBurn(self): ## TODO if yes redo turn
-            pass
+        if not has_valid_card and len(self.current_pile) > 0:
+            print(f"\n{player.name} has no valid cards! Picking up the pile.")
+            player.hand.extend(self.current_pile)
 
+            self.current_pile.clear()
+            return
+
+
+        turn_complete = False
+        while not turn_complete:
+            player.show_hand()
+            try:
+                choice = int(input("Pick a card index: "))
+                card = player.hand[choice]
+
+                if isValidCard(self.current_pile, card):
+                    self.current_pile.append(player.hand.pop(choice))  # מוציא מהיד ושם בערימה
+                    print("Great move!")
+                    print(f"played card: {card}")
+
+
+                    if self.checkIfBurn():
+                        pass
+                    else:
+                        turn_complete = True
+                else:
+                    print("Not a valid card, try again.")
+
+            except (ValueError, IndexError):
+                print("Invalid input. Please enter a valid number.")
+
+        # משיכת קלפים אם צריך
         if len(player.hand) < 3 and len(self.current_deck.deck) > 0:
             player.hand.append(self.current_deck.draw_card())
 

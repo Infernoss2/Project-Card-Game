@@ -42,19 +42,30 @@ def isValidCard(pile, card):
 
     if len(pile) == 1 and last_card_val in [0 ,1, 2]: ## last card is 2,3,4
         return True
-    else:
+    elif len(pile) == 1:
+        if my_card_val in [0,1,8] and last_card_val != 10:
+            return True
+        elif my_card_val >= last_card_val != 5:
+            return True
 
-        if last_card_val == 1: ## card is 3
-            last_card = pile[-2]
-            last_card_val = checkValue(last_card)
-            if my_card_val >= last_card_val:
-                return True
+
+
+    if len(pile) > 1 and last_card_val == 1: ## card is 3
+        last_card = pile[-2]
+        last_card_val = checkValue(last_card)
+        if my_card_val >= last_card_val != 5:
+            return True
+
         elif last_card_val == 5: ##card is 7
-            if my_card_val <= 7: return True
+            if my_card_val <= 5: return True
 
         elif last_card_val == 10: ## card is a queen
             if my_card_val in [10 , 11 ,12]:
                 return True
+        elif my_card_val >= last_card_val: return True
+    if my_card_val >= last_card_val: return True
+
+
 
 
     return False

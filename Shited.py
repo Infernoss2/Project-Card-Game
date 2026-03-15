@@ -24,13 +24,18 @@ def main():
             print(card)
 
     while len(game.Players) > 1:
-        for player in game.Players:
-            if len(game.Players) == 1:
+
+        for player in list(game.Players):
+            if len(game.Players) <= 1:
                 break
+
+            print(f"\nIt's {player.name}'s turn")
             game.play_turn(player)
-            if player.face_down == 0:
-                place = (start_players_amount+1)-len(game.Players)
-                print(f"\n{player.name} finished in place - {place}")
+
+
+            if len(player.hand) == 0 and player.face_down == 0:
+                place = (start_players_amount + 1) - len(game.Players)
+                print(f"\n{player.name} finished in place - {place}!")
                 game.Players.remove(player)
 
 
