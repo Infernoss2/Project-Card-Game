@@ -7,6 +7,7 @@ def main():
 
     game.add_player("Sagi")
     game.add_player("Bot")
+    game.add_player("marcel")
     start_players_amount = len(game.Players)
 
     game.current_deck.shuffle()
@@ -27,13 +28,14 @@ def main():
 
         for player in list(game.Players):
             if len(game.Players) <= 1:
+                print("game over")
                 break
 
             print(f"\nIt's {player.name}'s turn")
             game.play_turn(player)
 
 
-            if len(player.hand) == 0 and player.face_down == 0:
+            if len(player.hand) == 0 and len(player.face_down) == 0:
                 place = (start_players_amount + 1) - len(game.Players)
                 print(f"\n{player.name} finished in place - {place}!")
                 game.Players.remove(player)

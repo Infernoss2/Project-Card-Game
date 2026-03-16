@@ -1,3 +1,6 @@
+
+
+
 class Player:
     def __init__(self , name):
         self.name = name
@@ -9,9 +12,22 @@ class Player:
         self.hand.append(card)
 
     def play_hand(self , index):
-        self.hand.pop(index)
+        card , zone = self.active_cards()
+        if card is None:
+            return None
+        return card.pop(index)
 
     def show_hand(self):
         for i, card in enumerate(self.hand):
             print(f"{i}: {card}")
+
+
+    def active_cards(self):
+        if self.hand:
+            return self.hand , "hand"
+        elif self.face_up:
+            return self.face_up , "face_up"
+        elif self.face_down:
+            return self.face_down , "face_down"
+        return None , None
 

@@ -27,8 +27,49 @@ class Deck:
     def draw_card(self):
         return self.deck.pop()
 
+
 def checkValue(card):
     return VALUES.index(card.value)
+
+
+# def isValidCard(pile, card):
+#     my_card_val = checkValue(card)
+#
+#     if len(pile) == 0:
+#         return True
+#
+#     last_card = pile[-1]
+#     last_card_val = checkValue(last_card)
+#
+#     if len(pile) == 1 and last_card_val in [0 ,1, 2]: ## last card is 2,3,4
+#         return True
+#     elif len(pile) == 1:
+#         if my_card_val in [0,1,8] and last_card_val != 10:
+#             return True
+#         elif my_card_val >= last_card_val != 5:
+#             return True
+#
+#
+#
+#     if len(pile) > 1 and last_card_val == 1: ## card is 3
+#         last_card = pile[-2]
+#         last_card_val = checkValue(last_card)
+#         if my_card_val >= last_card_val != 5:
+#             return True
+#
+#         elif last_card_val == 5: ##card is 7
+#             if my_card_val <= 5: return True
+#
+#         elif last_card_val == 10: ## card is a queen
+#             if my_card_val in [10 , 11 ,12]:
+#                 return True
+#         elif my_card_val >= last_card_val: return True
+#     if my_card_val >= last_card_val: return True
+#
+#
+#
+#
+#     return False
 
 
 def isValidCard(pile, card):
@@ -40,35 +81,30 @@ def isValidCard(pile, card):
     last_card = pile[-1]
     last_card_val = checkValue(last_card)
 
-    if len(pile) == 1 and last_card_val in [0 ,1, 2]: ## last card is 2,3,4
-        return True
-    elif len(pile) == 1:
-        if my_card_val in [0,1,8] and last_card_val != 10:
-            return True
-        elif my_card_val >= last_card_val != 5:
-            return True
-
-
-
-    if len(pile) > 1 and last_card_val == 1: ## card is 3
+    if last_card_val == 1 and len(pile) >= 1:
         last_card = pile[-2]
         last_card_val = checkValue(last_card)
-        if my_card_val >= last_card_val != 5:
+
+
+    if my_card_val in [0,1,8] and last_card_val != 10:
+        return True
+
+
+    elif last_card_val == 5:
+        if my_card_val in [0,1,8] or my_card_val <= 5:
             return True
+        else:
+            return False
 
-        elif last_card_val == 5: ##card is 7
-            if my_card_val <= 5: return True
-
-        elif last_card_val == 10: ## card is a queen
-            if my_card_val in [10 , 11 ,12]:
-                return True
-        elif my_card_val >= last_card_val: return True
-    if my_card_val >= last_card_val: return True
-
-
+    elif my_card_val >= last_card_val != 5:
+        return True
 
 
     return False
+
+
+
+
 
 
 

@@ -1,3 +1,5 @@
+from random import choice
+
 from pyparsing import empty
 
 from Cards import Deck, isValidCard
@@ -78,46 +80,91 @@ class Game:
             player.face_up.append(card)
 
 
-    def play_turn(self,player):
-        has_valid_card = False
-        for card in player.hand:
-            if isValidCard(self.current_pile, card):
-                has_valid_card = True
-                break
-        if not has_valid_card and len(self.current_pile) > 0:
-            print(f"\n{player.name} has no valid cards! Picking up the pile.")
-            player.hand.extend(self.current_pile)
+    def play_turn(self, player):
+        cards, zone = player.active_cards()
 
-            self.current_pile.clear()
+        if cards is None:
+            print(f"{player.name}, you have no cards left.")
             return
 
-
-        turn_complete = False
-        while not turn_complete:
-            player.show_hand()
+        if zone == "face_down":
             try:
-                choice = int(input("Pick a card index: "))
-                card = player.hand[choice]
+                for i, card in enumerate(cards):
+                    print(f"{i}: [hidden]")
+
+                choice = int(input("pick a card, good luck: "))
+                card = player.play_hand(choice)
+
+                print(f"you picked {card}.")
 
                 if isValidCard(self.current_pile, card):
-                    self.current_pile.append(player.hand.pop(choice))  # מוציא מהיד ושם בערימה
-                    print("Great move!")
-                    print(f"played card: {card}")
-
-
-                    if self.checkIfBurn():
-                        pass
-                    else:
-                        turn_complete = True
+                    self.current_pile.append(card)
+                    print("so lucky !")
+                    self.checkIfBurn()
                 else:
-                    print("Not a valid card, try again.")
+                    print("sorry , bad luck !")
+                    player.hand.extend(self.current_pile)
+                    player.hand.append(card)
+                    self.current_pile.clear()
 
             except (ValueError, IndexError):
-                print("Invalid input. Please enter a valid number.")
+                print("invalid input.")
+            return
 
-        # משיכת קלפים אם צריך
-        if len(player.hand) < 3 and len(self.current_deck.deck) > 0:
-            player.hand.append(self.current_deck.draw_card())
+        elif zone == "face_up" or zone == "hand":
+            has_valid_card = False
+            for card in cards:
+                if isValidCard(self.current_pile, card):
+                    has_valid_card = True
+                    break
+
+            if not has_valid_card and len(self.current_pile) > 0:
+                print(f"{player.name} has no valid card. picking up the pile.")
+                player.hand.extend(self.current_pile)
+                self.current_pile.clear()
+                return
+
+            turn_complete = False
+
+            while not turn_complete:
+                try:
+                    for i, card in enumerate(cards):
+                        print(f"{i}: {card}")
+
+                    choice = int(input("Pick a card index: "))
+                    card = cards[choice]
+
+                    if isValidCard(self.current_pile, card):
+                        played_card = player.play_hand(choice)
+                        self.current_pile.append(played_card)
+
+                        print("Great move!")
+                        print(f"played card: {played_card}")
+
+                        if self.checkIfBurn():
+                            cards, zone = player.active_cards()
+                            if cards is None:
+                                return
+                        else:
+                            turn_complete = True
+                    else:
+                        print(f"Not a valid card, try again, card on top is {self.current_pile[len(self.current_pile)-1]}")
+
+                except (ValueError, IndexError):
+                    print("Invalid input. Please enter a valid number.")
+
+        if zone == "hand":
+            while len(player.hand) < 3 and len(self.current_deck.deck) > 0:
+                player.hand.append(self.current_deck.draw_card())
+
+            print(f"{len(self.current_deck.deck)} cards left.")
+
+
+
+
+
+
+
 
 
 
