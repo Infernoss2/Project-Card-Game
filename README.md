@@ -27,3 +27,5 @@ The system was designed with an emphasis on clean architecture, modularity, and 
 - The objective is to get rid of all your cards before the other players.
 
 > Note: The game includes strategic decision-making regarding which cards to play and when.
+> ## 🚧 Status
+This project is currently under development and continuously improving.
