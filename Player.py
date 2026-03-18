@@ -31,3 +31,6 @@ class Player:
             return self.face_down , "face_down"
         return None , None
 
+    def print_face_up(self):
+
+        print(" -- ".join(str(card) for card in self.face_up))

@@ -8,6 +8,7 @@ def main():
     game.add_player("Sagi")
     game.add_player("Bot")
     game.add_player("marcel")
+    game.add_player("zorro")
     start_players_amount = len(game.Players)
 
     game.current_deck.shuffle()
@@ -18,8 +19,9 @@ def main():
 
     for player in game.Players:
         print(f"\n{player.name} face-up cards:")
-        for card in player.face_up:
-            print(card)
+        player.print_face_up()
+
+
         print(f"\n{player.name} hand cards:")
         for card in player.hand:
             print(card)
@@ -32,7 +34,11 @@ def main():
                 break
 
             print(f"\nIt's {player.name}'s turn")
+            player.print_face_up()
+            print("\n")
             game.play_turn(player)
+
+
 
 
             if len(player.hand) == 0 and len(player.face_down) == 0:

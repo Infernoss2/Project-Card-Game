@@ -2,7 +2,7 @@ from random import choice
 
 from pyparsing import empty
 
-from Cards import Deck, isValidCard
+from Cards import Deck, isValidCard, checkValue
 from Player import Player
 
 class Game:
@@ -11,6 +11,7 @@ class Game:
         self.Players = []
         self.current_pile = []
         self.current_player = 0
+        self.trash = []
 
     def add_player(self, name):
         player = Player(name)
@@ -23,12 +24,13 @@ class Game:
             for _ in range(6):
                 player.hand.append(self.current_deck.draw_card())
 
+
     def checkIfBurn(self):
         if len(self.current_deck.deck) >= 4:
             if self.current_deck.deck[0] == self.current_deck.deck[1] == self.current_deck.deck[2] == self.current_deck.deck[3]:
                 return True
-            else:
-                return False
+            elif checkValue(self.current_pile[len(self.current_pile)-1]) == 8:
+                return True
         return False
 
 
@@ -80,6 +82,7 @@ class Game:
             player.face_up.append(card)
 
 
+
     def play_turn(self, player):
         cards, zone = player.active_cards()
 
@@ -100,7 +103,9 @@ class Game:
                 if isValidCard(self.current_pile, card):
                     self.current_pile.append(card)
                     print("so lucky !")
-                    self.checkIfBurn()
+
+
+
                 else:
                     print("sorry , bad luck !")
                     player.hand.extend(self.current_pile)
@@ -142,6 +147,12 @@ class Game:
                         print(f"played card: {played_card}")
 
                         if self.checkIfBurn():
+                            self.trash.extend(self.current_pile)
+                            self.current_pile.clear()
+                            if len(self.current_deck.deck) > 0:
+                                player.hand.append(self.current_deck.draw_card())
+                            turn_complete = False
+
                             cards, zone = player.active_cards()
                             if cards is None:
                                 return
