@@ -22,15 +22,18 @@ class Game:
             for _ in range(3):
                 player.face_down.append(self.current_deck.draw_card())
             for _ in range(6):
-                player.hand.append(self.current_deck.draw_card())
+                player.take_card(self.current_deck.draw_card())
 
 
     def checkIfBurn(self):
-        if len(self.current_deck.deck) >= 4:
-            if self.current_deck.deck[0] == self.current_deck.deck[1] == self.current_deck.deck[2] == self.current_deck.deck[3]:
+        if len(self.current_pile) >= 4:
+            if self.current_pile[0] == self.current_pile[1] == self.current_pile[2] == self.current_pile[3]:
+                print("the pile is burned , another turn")
                 return True
-            elif checkValue(self.current_pile[len(self.current_pile)-1]) == 8:
-                return True
+        if checkValue(self.current_pile[len(self.current_pile)-1]) == 8:
+            print("the pile is burned , another turn")
+            return True
+
         return False
 
 
@@ -74,7 +77,7 @@ class Game:
         chosen_cards = []
 
         for index in sorted(indices, reverse=True):
-            chosen_cards.append(player.hand.pop(index))
+            chosen_cards.append(player.remove_card_from_hand_by_index(index))
 
         chosen_cards.reverse()
 
@@ -109,14 +112,14 @@ class Game:
                 else:
                     print("sorry , bad luck !")
                     player.hand.extend(self.current_pile)
-                    player.hand.append(card)
+                    player.hand.take_card(card)
                     self.current_pile.clear()
 
             except (ValueError, IndexError):
                 print("invalid input.")
             return
 
-        elif zone == "face_up" or zone == "hand":
+        elif zone == "face_up":
             has_valid_card = False
             for card in cards:
                 if isValidCard(self.current_pile, card):
@@ -149,8 +152,7 @@ class Game:
                         if self.checkIfBurn():
                             self.trash.extend(self.current_pile)
                             self.current_pile.clear()
-                            if len(self.current_deck.deck) > 0:
-                                player.hand.append(self.current_deck.draw_card())
+
                             turn_complete = False
 
                             cards, zone = player.active_cards()
@@ -164,9 +166,69 @@ class Game:
                 except (ValueError, IndexError):
                     print("Invalid input. Please enter a valid number.")
 
+        elif zone == "hand":
+            has_valid_card = False
+            for card in cards:
+                if isValidCard(self.current_pile, card):
+                    has_valid_card = True
+                    break
+            if not has_valid_card and len(self.current_pile) > 0:
+                print(f"{player.name} has no valid card. picking up the pile.")
+                for card in self.current_pile:
+                    player.take_card(card)
+                self.current_pile.clear()
+                return
+
+            turn_complete = False
+            while not turn_complete:
+                try:
+                    for i, card in enumerate(cards):
+                        print(f"{i}: {card}")
+                    choice = int(input("Pick a card index: "))
+                    chosen_card = player.hand[choice]
+                    value = checkValue(chosen_card)
+                    count = player.count_cards[value]
+
+                    amount = 1
+                    if count > 1:
+                        amount = int(input(f"You have {count} cards of value {value}. How many do you want to play ? "))
+                        if amount < 1 or amount > count:
+                            print("invalid amount.")
+                            continue
+
+                    cards_to_play = []
+                    for card in player.hand:
+                        if checkValue(card) == value and len(cards_to_play) < amount:
+                            cards_to_play.append(card)
+
+                    if isValidCard(self.current_pile, cards_to_play[0]):
+                        for card in cards_to_play:
+                            player.remove_card_from_hand(card)
+                            self.current_pile.append(card)
+
+                        print("Great move!")
+                        print("played cards:")
+                        for card in cards_to_play:
+                            print(card)
+
+                        if self.checkIfBurn():
+                            self.trash.extend(self.current_pile)
+                            self.current_pile.clear()
+                            turn_complete = False
+                        else:
+                            turn_complete = True
+                    else:
+                        if len(self.current_pile) > 0:
+                            print(f"Not a valid card, try again. card on top is {self.current_pile[-1]}")
+                        else:
+                            print("Not a valid card, try again.")
+
+                except (ValueError, IndexError):
+                    print("Invalid input. Please enter a valid number.")
+
         if zone == "hand":
             while len(player.hand) < 3 and len(self.current_deck.deck) > 0:
-                player.hand.append(self.current_deck.draw_card())
+                player.take_card(self.current_deck.draw_card())
 
             print(f"{len(self.current_deck.deck)} cards left.")
 

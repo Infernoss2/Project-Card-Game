@@ -1,4 +1,4 @@
-
+from Cards import checkValue
 
 
 class Player:
@@ -7,9 +7,34 @@ class Player:
         self.hand = []
         self.face_up = []
         self.face_down = []
+        self.count_cards = {}
 
     def take_card(self , card):
         self.hand.append(card)
+        val = checkValue(card)
+        if val in self.count_cards:
+            self.count_cards[val] += 1
+        else:
+            self.count_cards[val] = 1
+
+    def remove_card_from_hand(self , card):
+        self.hand.remove(card)
+        val = checkValue(card)
+        self.count_cards[val] -= 1
+        if self.count_cards[val] == 0:
+            del self.count_cards[val]
+
+    def remove_card_from_hand_by_index(self, index):
+        card = self.hand.pop(index)
+        value = checkValue(card)
+
+        self.count_cards[value] -= 1
+        if self.count_cards[value] == 0:
+            del self.count_cards[value]
+
+        return card
+
+
 
     def play_hand(self , index):
         card , zone = self.active_cards()
@@ -33,4 +58,4 @@ class Player:
 
     def print_face_up(self):
 
-        print(" -- ".join(str(card) for card in self.face_up))
+        print(" --- ".join (str(card) for card in self.face_up))

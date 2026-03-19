@@ -41,7 +41,7 @@ def isValidCard(pile, card):
     last_card = pile[-1]
     last_card_val = checkValue(last_card)
 
-    if last_card_val == 1 and len(pile) >= 1:
+    if last_card_val == 1 and len(pile) > 1:
         last_card = pile[-2]
         last_card_val = checkValue(last_card)
 
