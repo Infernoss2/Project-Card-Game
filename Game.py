@@ -185,6 +185,16 @@ class Game:
                     for i, card in enumerate(cards):
                         print(f"{i}: {card}")
                     choice = int(input("Pick a card index: "))
+                    if choice == 99:
+                        if len(self.current_pile) > 0:
+                            for card in self.current_pile:
+                                player.take_card(card)
+                            self.current_pile.clear()
+                            print(f"{player.name} took the pile !")
+                            break
+
+
+
                     chosen_card = player.hand[choice]
                     value = checkValue(chosen_card)
                     count = player.count_cards[value]

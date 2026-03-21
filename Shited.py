@@ -7,8 +7,7 @@ def main():
 
     game.add_player("Sagi")
     game.add_player("Bot")
-    game.add_player("marcel")
-    game.add_player("zorro")
+
     start_players_amount = len(game.Players)
 
     game.current_deck.shuffle()
