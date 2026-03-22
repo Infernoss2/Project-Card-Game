@@ -1,6 +1,5 @@
 from random import choice
 
-from pyparsing import empty
 
 from Cards import Deck, isValidCard, checkValue
 from Player import Player
@@ -241,6 +240,33 @@ class Game:
                 player.take_card(self.current_deck.draw_card())
 
             print(f"{len(self.current_deck.deck)} cards left.")
+
+
+
+    def try_play_hand_card(self, player, index):
+        if index < 0 or index >= len(player.hand):
+            return False, "Invalid card index."
+
+        card = player.hand[index]
+
+        if not isValidCard(self.current_pile, card):
+            if len(self.current_pile) > 0:
+                return False, f"Invalid move. Top card is {self.current_pile[-1]}"
+            else:
+                return False, "Invalid move."
+
+        played_card = player.remove_card_from_hand_by_index(index)
+        self.current_pile.append(played_card)
+
+        if self.checkIfBurn():
+            self.trash.extend(self.current_pile)
+            self.current_pile.clear()
+            return True, f"You played {played_card}. Burn!"
+
+        while len(player.hand) < 3 and len(self.current_deck.deck) > 0:
+            player.take_card(self.current_deck.draw_card())
+
+        return True, f"You played {played_card}"
 
 
 
