@@ -4,6 +4,13 @@ SUITS = ["Hearts", "Diamonds", "Clubs", "Spades"]
 VALUES = ["2", "3", "4", "5", "6", "7",
           "8", "9", "10", "J", "Q", "K" ,"A"]
 
+symbols = {
+    "Hearts": "♥",
+    "Diamonds": "♦",
+    "Clubs": "♣",
+    "Spades": "♠"
+}
+
 
 class Card:
     def __init__(self ,suit ,value):
@@ -11,7 +18,7 @@ class Card:
         self.value = value
 
     def __str__(self):
-        return f"{self.value} of {self.suit}"
+        return f"{self.value} {symbols[self.suit]}"
 
 
 class Deck:

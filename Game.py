@@ -9,6 +9,7 @@ class Game:
         self.current_pile = []
         self.current_player = 0
         self.trash = []
+        self.finish_order = []
 
         # מצבי משחק
         self.state = "setup"          # setup / playing / game_over
@@ -60,6 +61,7 @@ class Game:
                 elif i == self.current_player:
                     removed_current = True
 
+                self.finish_order.append(player.name)
                 self.Players.pop(i)
             else:
                 i += 1
@@ -67,6 +69,8 @@ class Game:
         if len(self.Players) <= 1:
             self.state = "game_over"
             self.current_player = 0
+            if len(self.Players) == 1:
+                self.finish_order.append(self.Players[0].name)
             return
 
         if removed_current:
@@ -173,47 +177,68 @@ class Game:
     # -----------------------------
     def handle_card_click(self, zone, index):
         if self.state == "setup":
-            # בזמן setup מותר לבחור רק מהיד של שחקן ה-setup
-            if zone != "hand":
-                return False, "Choose cards from your hand."
+            player = self.get_setup_player()
+        else:
+            player = self.get_current_player()
+        if player is None:
+            return False, "No current player."
 
-            return self.toggle_setup_card(index)
+        if self.state == "setup":
+            if zone != "hand":
+                return False, "In setup, you can only choose from hand."
+
+            if index < 0 or index >= len(player.hand):
+                return False, "Invalid card index."
+
+            if index in self.selected_indices:
+                self.selected_indices.remove(index)
+                return True, f"Unselected card {player.hand[index]}."
+
+            if len(self.selected_indices) >= 3:
+                return False, "You can only choose 3 cards."
+
+            self.selected_indices.append(index)
+            return True, f"Selected card {player.hand[index]}."
 
         if self.state == "playing":
-            player = self.get_current_player()
-            if player is None:
-                return False, "No current player."
-
             cards, active_zone = player.active_cards()
-            if active_zone is None:
-                return False, "No cards left."
 
-            # מותר ללחוץ רק על האזור הפעיל
             if zone != active_zone:
-                return False, f"You must play from {active_zone}."
-
-            if zone == "hand":
-                return self.play_hand_card(player, index)
-
-            if zone == "face_up":
-                return self.play_face_up_card(player, index)
+                return False, "You can only play from the active zone."
 
             if zone == "face_down":
                 return self.play_face_down_card(player, index)
 
-            return False, "Unknown zone."
+            return False, "Use selection and confirm for hand or face up."
 
-        if self.state == "game_over":
-            return False, "Game over."
+        return False, "Invalid game state."
 
-        return False, "Unknown state."
+
+    def play_selected_cards(self, zone, indices):
+        player = self.get_current_player()
+        if player is None:
+            return False, "No current player."
+
+        if not indices:
+            return False, "No cards selected."
+
+        if zone == "hand":
+            return self.play_hand_card(player, indices)
+
+        if zone == "face_up":
+            return self.play_face_up_card(player, indices)
+
+        return False, "Invalid zone."
+
+
 
     # -----------------------------
     # מהלכים לפי אזור
     # -----------------------------
-    def play_hand_card(self, player, index):
-        if index < 0 or index >= len(player.hand):
-            return False, "Invalid card index."
+    def play_hand_card(self, player, indices):
+        for i in indices:
+            if i < 0 or i >= len(player.hand):
+                return False, "Invalid card index."
 
         has_valid_card = False
         for c in player.hand:
@@ -228,13 +253,19 @@ class Game:
             self.advance_turn()
             return True, f"{player.name} has no valid move and picked up the pile."
 
-        card = player.hand[index]
+        cards = [player.hand[i] for i in indices]
+        values = [c.value for c in cards]
+        if len(set(values)) != 1:
+            return False , "all card must have the same value"
 
-        if not isValidCard(self.current_pile, card):
+        if not isValidCard(self.current_pile, cards[0]):
             return False, "Invalid move."
 
-        played_card = player.remove_card_from_hand_by_index(index)
-        self.current_pile.append(played_card)
+        for i in sorted(indices, reverse=True):
+            player.remove_card_from_hand_by_index(i)
+
+        for card in cards:
+            self.current_pile.append(card)
 
         burned = False
         if self.check_if_burn():
@@ -245,25 +276,46 @@ class Game:
         self.remove_finished_players()
 
         if self.state == "game_over":
-            return True, f"{player.name} played {played_card}. Game over."
+            return True, f"{player.name} played {len(cards)} cards of {cards[0]} Game over."
 
         if burned:
-            return True, f"{player.name} played {played_card}. Pile burned! Play again."
+            return True, f"{player.name} played {len(cards)} cards of {cards[0]} Pile burned! Play again."
 
         self.advance_turn()
-        return True, f"{player.name} played {played_card}."
+        return True, f"{player.name} played {len(cards)} cards of {cards[0]}."
 
-    def play_face_up_card(self, player, index):
-        if index < 0 or index >= len(player.face_up):
-            return False, "Invalid card index."
+    def play_face_up_card(self, player, indices):
+        for i in indices:
+            if i < 0 or i >= len(player.face_up):
+                return False, "Invalid card index."
 
-        card = player.face_up[index]
+        has_valid_card = False
+        for c in player.face_up:
+            if isValidCard(self.current_pile, c):
+                has_valid_card = True
+                break
 
-        if not isValidCard(self.current_pile, card):
+        if not has_valid_card:
+            for c in self.current_pile:
+                player.take_card(c)
+            self.current_pile.clear()
+            self.advance_turn()
+            return True, f"{player.name} has no valid move and picked up the pile."
+
+
+        cards = [player.face_up[i] for i in indices]
+        values = [c.value for c in cards]
+        if len(set(values)) != 1:
+            return False, "all card must have the same value"
+
+        if not isValidCard(self.current_pile, cards[0]):
             return False, "Invalid move."
 
-        played_card = player.face_up.pop(index)
-        self.current_pile.append(played_card)
+        for i in sorted(indices, reverse=True):
+            player.face_up.pop(i)
+
+        for card in cards:
+            self.current_pile.append(card)
 
         burned = False
         if self.check_if_burn():
@@ -273,13 +325,13 @@ class Game:
         self.remove_finished_players()
 
         if self.state == "game_over":
-            return True, f"{player.name} played {played_card}. Game over."
+            return True, f"{player.name} played {cards[0]}. Game over."
 
         if burned:
-            return True, f"{player.name} played {played_card}. Pile burned! Play again."
+            return True, f"{player.name} played {cards[0]}. Pile burned! Play again."
 
         self.advance_turn()
-        return True, f"{player.name} played {played_card}."
+        return True, f"{player.name} played {cards[0]}."
 
     def play_face_down_card(self, player, index):
         if index < 0 or index >= len(player.face_down):
@@ -312,23 +364,19 @@ class Game:
         self.advance_turn()
         return True, f"{player.name} revealed {played_card}. Bad luck, picked up the pile."
 
-    # -----------------------------
-    # פעולה יזומה: לקחת pile
-    # -----------------------------
-    def take_pile_for_current_player(self):
-        if self.state != "playing":
-            return False, "You can't take the pile now."
 
+
+
+    def take_pile_by_choice(self):
         player = self.get_current_player()
         if player is None:
             return False, "No current player."
-
         if len(self.current_pile) == 0:
             return False, "Pile is empty."
-
         self.pickup_pile(player)
         self.advance_turn()
         return True, f"{player.name} took the pile."
+
 
 
 
