@@ -76,13 +76,13 @@ class Game:
         if removed_current:
             self.current_player %= len(self.Players)
 
-    def advance_turn(self):
+    def advance_turn(self , steps = 1):
         self.remove_finished_players()
 
         if self.state == "game_over":
             return
 
-        self.current_player = (self.current_player + 1) % len(self.Players)
+        self.current_player = (self.current_player + steps) % len(self.Players)
 
     # -----------------------------
     # בדיקות pile / burn
@@ -240,19 +240,6 @@ class Game:
             if i < 0 or i >= len(player.hand):
                 return False, "Invalid card index."
 
-        has_valid_card = False
-        for c in player.hand:
-            if isValidCard(self.current_pile, c):
-                has_valid_card = True
-                break
-
-        if not has_valid_card:
-            for c in self.current_pile:
-                player.take_card(c)
-            self.current_pile.clear()
-            self.advance_turn()
-            return True, f"{player.name} has no valid move and picked up the pile."
-
         cards = [player.hand[i] for i in indices]
         values = [c.value for c in cards]
         if len(set(values)) != 1:
@@ -281,27 +268,18 @@ class Game:
         if burned:
             return True, f"{player.name} played {len(cards)} cards of {cards[0]} Pile burned! Play again."
 
-        self.advance_turn()
+        steps = 1
+        if checkValue(cards[0]) == 6:
+            steps = 2
+        self.advance_turn(steps)
         return True, f"{player.name} played {len(cards)} cards of {cards[0]}."
+
+
 
     def play_face_up_card(self, player, indices):
         for i in indices:
             if i < 0 or i >= len(player.face_up):
                 return False, "Invalid card index."
-
-        has_valid_card = False
-        for c in player.face_up:
-            if isValidCard(self.current_pile, c):
-                has_valid_card = True
-                break
-
-        if not has_valid_card:
-            for c in self.current_pile:
-                player.take_card(c)
-            self.current_pile.clear()
-            self.advance_turn()
-            return True, f"{player.name} has no valid move and picked up the pile."
-
 
         cards = [player.face_up[i] for i in indices]
         values = [c.value for c in cards]
@@ -330,8 +308,12 @@ class Game:
         if burned:
             return True, f"{player.name} played {cards[0]}. Pile burned! Play again."
 
-        self.advance_turn()
+        steps = 1
+        if checkValue(cards[0]) == 6:
+            steps = 2
+        self.advance_turn(steps)
         return True, f"{player.name} played {cards[0]}."
+
 
     def play_face_down_card(self, player, index):
         if index < 0 or index >= len(player.face_down):
@@ -355,7 +337,10 @@ class Game:
             if burned:
                 return True, f"{player.name} revealed {played_card}. Pile burned! Play again."
 
-            self.advance_turn()
+            steps = 1
+            if checkValue(played_card) == 6:
+                steps = 2
+            self.advance_turn(steps)
             return True, f"{player.name} revealed {played_card} and played it."
 
         # לא חוקי -> לוקח pile וגם את הקלף ההפוך

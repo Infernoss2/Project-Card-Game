@@ -29,20 +29,35 @@ class ShitheadGUI:
         self.play_confirm_rect = pygame.Rect(980, 120, 170, 45)
 
         self.game = Game()
-        self.game.add_player("sagi")
+
         self.game.add_player("nami")
         self.game.add_player("zoro")
+        self.game.add_player("sanji")
 
         self.game.deal_cards()
 
     def run(self):
         while self.running:
+            self.check_auto_take_pile()
             self.handle_events()
             self.draw()
             pygame.display.flip()
             self.clock.tick(60)
 
         pygame.quit()
+
+    def check_auto_take_pile(self):
+        # בודק אם אנחנו באמצע משחק ויש בכלל קופה
+        if self.game.state == "playing" and len(self.game.current_pile) > 0:
+            player = self.game.get_current_player()
+            if player:
+                # משתמשים בפונקציה שכבר כתבת כדי לבדוק אם יש לו מהלכים חוקיים!
+                if not self.game.can_player_play_any(player):
+                    self.game.pickup_pile(player)
+                    self.game.advance_turn()
+                    self.message = f"{player.name} had no valid moves and automatically took the pile."
+                    self.selected_play_indices.clear()
+                    self.selected_play_zone = None
 
     def toggle_card_selection(self, zone, index, card):
         current_player = self.game.get_current_player()
