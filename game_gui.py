@@ -1,44 +1,44 @@
 import pygame
-from Game import Game
+from network import Network
 
 
 class ShitheadGUI:
     def __init__(self):
         pygame.init()
-
         self.WIDTH = 1300
         self.HEIGHT = 800
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
-        pygame.display.set_caption("Shithead")
 
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont(None, 32)
         self.small_font = pygame.font.SysFont("arial", 26)
 
         self.running = True
-        self.message = "Welcome to Shithead"
+        self.message = ""
 
         self.hand_rects = []
         self.face_up_rects = []
         self.face_down_rects = []
         self.confirm_rect = pygame.Rect(980, 60, 170, 45)
+        self.play_confirm_rect = pygame.Rect(980, 120, 170, 45)
+        self.pile_rect = None
 
         self.selected_play_indices = []
         self.selected_play_zone = None
-        self.pile_rect = None
-        self.play_confirm_rect = pygame.Rect(980, 120, 170, 45)
 
-        self.game = Game()
-
-        self.game.add_player("nami")
-        self.game.add_player("zoro")
-        self.game.add_player("sanji")
-
-        self.game.deal_cards()
+        # -- פה קורה הקסם של הרשת --
+        self.network = Network()
+        self.player_id = self.network.getP()
+        pygame.display.set_caption(f"Shithead - Player {self.player_id + 1}")
+        self.game = None  # אנחנו נקבל את המשחק מהשרת
 
     def run(self):
         while self.running:
-            self.check_auto_take_pile()
+            # ה-GUI מושך את העדכון האחרון מהשרת ברציפות
+            new_game_state = self.network.send("get")
+            if new_game_state:
+                self.game = new_game_state
+
             self.handle_events()
             self.draw()
             pygame.display.flip()
@@ -46,29 +46,7 @@ class ShitheadGUI:
 
         pygame.quit()
 
-    def check_auto_take_pile(self):
-        # בודק אם אנחנו באמצע משחק ויש בכלל קופה
-        if self.game.state == "playing" and len(self.game.current_pile) > 0:
-            player = self.game.get_current_player()
-            if player:
-                # משתמשים בפונקציה שכבר כתבת כדי לבדוק אם יש לו מהלכים חוקיים!
-                if not self.game.can_player_play_any(player):
-                    self.game.pickup_pile(player)
-                    self.game.advance_turn()
-                    self.message = f"{player.name} had no valid moves and automatically took the pile."
-                    self.selected_play_indices.clear()
-                    self.selected_play_zone = None
-
     def toggle_card_selection(self, zone, index, card):
-        current_player = self.game.get_current_player()
-        if current_player is None:
-            return
-
-        active_cards, active_zone = current_player.active_cards()
-        if zone != active_zone:
-            self.message = "You can only select from the active zone."
-            return
-
         if self.selected_play_zone is None:
             self.selected_play_zone = zone
 
@@ -82,68 +60,62 @@ class ShitheadGUI:
                 self.selected_play_zone = None
             return
 
-        selected_cards = []
-        if zone == "hand":
-            selected_cards = [current_player.hand[i] for i in self.selected_play_indices]
-        elif zone == "face_up":
-            selected_cards = [current_player.face_up[i] for i in self.selected_play_indices]
-
-        if selected_cards and card.value != selected_cards[0].value:
-            self.message = "You can only select cards with the same value."
-            return
-
+        # כדי לא להסתבך עם לוגיקה מקומית, ניתן לשרת לבדוק אם זה חוקי מאוחר יותר,
+        # אבל נשמור על חוקיות בסיסית שאי אפשר לבחור קלפים שונים
         self.selected_play_indices.append(index)
         self.selected_play_indices.sort()
 
     def handle_mouse_click(self, pos):
+        if not self.game or len(self.game.Players) < 2:
+            return
+
+        # בדיקה האם זה התור שלי בכלל
+        my_turn_setup = (self.game.state == "setup" and self.game.setup_player_index == self.player_id)
+        my_turn_play = (self.game.state == "playing" and self.game.current_player == self.player_id)
+
         if self.game.state == "setup" and self.confirm_rect.collidepoint(pos):
-            success, message = self.game.confirm_setup_selection()
-            self.message = message
+            if my_turn_setup:
+                self.network.send({"action": "setup_confirm"})
+            else:
+                self.message = "Not your turn!"
             return
 
         if self.game.state == "playing" and self.selected_play_indices and self.play_confirm_rect.collidepoint(pos):
-            success, message = self.game.play_selected_cards(self.selected_play_zone, self.selected_play_indices)
-            self.message = message
-            self.selected_play_indices.clear()
-            self.selected_play_zone = None
+            if my_turn_play:
+                self.network.send(
+                    {"action": "play_cards", "zone": self.selected_play_zone, "indices": self.selected_play_indices})
+                self.selected_play_indices.clear()
+                self.selected_play_zone = None
+            else:
+                self.message = "Not your turn!"
             return
 
         if self.game.state == "playing" and self.pile_rect and self.pile_rect.collidepoint(pos):
-            success, message = self.game.take_pile_by_choice()
-            self.message = message
-            self.selected_play_indices.clear()
-            self.selected_play_zone = None
+            if my_turn_play:
+                self.network.send({"action": "take_pile"})
             return
 
-
-        # hand
         for rect, index, card in self.hand_rects:
             if rect.collidepoint(pos):
                 if self.game.state == "setup":
-                    success, message = self.game.toggle_setup_card(index)
-                    self.message = message
-                    return
-
-                if self.game.state == "playing":
-                    self.toggle_card_selection("hand", index, card)
-                    return
-
-        # face up
-        for rect, index, card in self.face_up_rects:
-            if rect.collidepoint(pos):
-                if self.game.state == "playing":
-                    self.toggle_card_selection("face_up", index, card)
-                    return
-
-        # face down
-        for rect, index in self.face_down_rects:
-            if rect.collidepoint(pos):
-                success, message = self.game.handle_card_click("face_down", index)
-                self.message = message
+                    if my_turn_setup:
+                        self.network.send({"action": "setup_toggle", "index": index})
+                elif self.game.state == "playing":
+                    if my_turn_play:
+                        self.toggle_card_selection("hand", index, card)
                 return
 
+        for rect, index, card in self.face_up_rects:
+            if rect.collidepoint(pos):
+                if self.game.state == "playing" and my_turn_play:
+                    self.toggle_card_selection("face_up", index, card)
+                return
 
-
+        for rect, index in self.face_down_rects:
+            if rect.collidepoint(pos):
+                if self.game.state == "playing" and my_turn_play:
+                    self.network.send({"action": "play_face_down", "index": index})
+                return
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -154,8 +126,14 @@ class ShitheadGUI:
 
     def draw(self):
         self.screen.fill((20, 120, 20))
-
         self.draw_title()
+
+        # מסך המתנה עד ששחקן נוסף מתחבר
+        if not self.game or len(self.game.Players) < 2:
+            wait_text = self.font.render("Waiting for another player to connect...", True, (255, 255, 255))
+            self.screen.blit(wait_text, (self.WIDTH // 2 - 200, self.HEIGHT // 2))
+            return
+
         self.draw_message()
         self.draw_state()
         self.draw_pile()
@@ -175,15 +153,13 @@ class ShitheadGUI:
         if self.game.state == "setup":
             player = self.game.get_setup_player()
             if player:
-                text = f"Setup: {player.name}, choose 3 cards for face up"
-            else:
-                text = "Setup"
+                prefix = "*** YOUR TURN *** " if self.game.setup_player_index == self.player_id else ""
+                text = f"{prefix}Setup: {player.name}, choose 3 cards for face up"
         elif self.game.state == "playing":
             player = self.game.get_current_player()
             if player:
-                text = f"Turn: {player.name}"
-            else:
-                text = "Playing"
+                prefix = "*** YOUR TURN *** " if self.game.current_player == self.player_id else ""
+                text = f"{prefix}Turn: {player.name}"
         else:
             text = "Game Over"
 
@@ -191,13 +167,13 @@ class ShitheadGUI:
         self.screen.blit(state_text, (20, 95))
 
     def draw_confirm_button(self):
-        if self.game.state == "setup":
+        if self.game.state == "setup" and self.game.setup_player_index == self.player_id:
             pygame.draw.rect(self.screen, (230, 230, 230), self.confirm_rect)
             pygame.draw.rect(self.screen, (255, 0, 0), self.confirm_rect, 2)
             text = self.small_font.render("Confirm 3 Cards", True, (0, 0, 0))
             self.screen.blit(text, (self.confirm_rect.x + 15, self.confirm_rect.y + 13))
 
-        elif self.game.state == "playing" and self.selected_play_indices:
+        elif self.game.state == "playing" and self.selected_play_indices and self.game.current_player == self.player_id:
             pygame.draw.rect(self.screen, (230, 230, 230), self.play_confirm_rect)
             pygame.draw.rect(self.screen, (255, 0, 0), self.play_confirm_rect, 2)
             text = self.small_font.render("Play Selected", True, (0, 0, 0))
@@ -208,8 +184,8 @@ class ShitheadGUI:
         pygame.draw.rect(self.screen, (255, 255, 255), self.pile_rect)
         pygame.draw.rect(self.screen, (255, 0, 0), self.pile_rect, 2)
 
-        pile_title = self.small_font.render("Pile", True, (0, 0, 0))
-        self.screen.blit(pile_title, (560, 230))
+        pile_title = self.small_font.render(f"Pile ({len(self.game.current_pile)})", True, (0, 0, 0))
+        self.screen.blit(pile_title, (540, 230))
 
         if len(self.game.current_pile) > 0:
             top_card = str(self.game.current_pile[-1])
@@ -220,12 +196,10 @@ class ShitheadGUI:
             self.screen.blit(empty_text, (555, 295))
 
     def draw_current_player_cards(self):
-        if self.game.state == "setup":
-            player = self.game.Players[self.game.setup_player_index]
+        # הממשק מציג *תמיד* את הקלפים שלך, גם אם זה לא תורך!
+        if self.player_id < len(self.game.Players):
+            player = self.game.Players[self.player_id]
         else:
-            player = self.game.get_current_player()
-
-        if player is None:
             return
 
         self.hand_rects = []
@@ -238,116 +212,85 @@ class ShitheadGUI:
         row_gap = 20
         cards_per_row = 8
 
-        # ---------- helper ----------
         def get_row_start_x(row_count):
             total_width = row_count * card_width + (row_count - 1) * gap
             return (self.WIDTH - total_width) // 2
 
-        # ---------- base positions ----------
         hand_y = 400
         left_cards_x = 40
 
-        # ---------- player info ----------
-        cards_text = self.small_font.render(f"{player.name}'s cards", True, (255, 255, 255))
+        cards_text = self.small_font.render("Your cards", True, (255, 255, 255))
         zone_text = self.small_font.render(f"Active zone: {player.active_cards()[1]}", True, (255, 255, 0))
         self.screen.blit(cards_text, (20, 420))
         self.screen.blit(zone_text, (20, 455))
 
-        # ---------- Hand title ----------
         hand_title = self.small_font.render("Hand", True, (255, 255, 255))
         hand_title_x = self.WIDTH // 2 - hand_title.get_width() // 2
         self.screen.blit(hand_title, (hand_title_x, hand_y - 35))
 
-        # ---------- Hand cards ----------
         for i, card in enumerate(player.hand):
             row = i // cards_per_row
             col = i % cards_per_row
-
             row_count = min(cards_per_row, len(player.hand) - row * cards_per_row)
             row_start_x = get_row_start_x(row_count)
-
             x = row_start_x + col * (card_width + gap)
             y = hand_y + row * (card_height + row_gap)
-
             rect = pygame.Rect(x, y, card_width, card_height)
 
             is_selected = False
-            if self.game.state == "setup" and i in self.game.selected_indices:
+            if self.game.state == "setup" and i in self.game.selected_indices and self.game.setup_player_index == self.player_id:
                 is_selected = True
             if self.game.state == "playing" and self.selected_play_zone == "hand" and i in self.selected_play_indices:
                 is_selected = True
 
-            if is_selected:
-                pygame.draw.rect(self.screen, (255, 230, 120), rect)
-            else:
-                pygame.draw.rect(self.screen, (255, 255, 255), rect)
-
+            pygame.draw.rect(self.screen, (255, 230, 120) if is_selected else (255, 255, 255), rect)
             pygame.draw.rect(self.screen, (255, 0, 0), rect, 2)
 
             card_color = (255, 0, 0) if card.suit in ["Hearts", "Diamonds"] else (0, 0, 0)
             card_text = self.small_font.render(str(card), True, card_color)
-            text_x = x + card_width // 2 - card_text.get_width() // 2
-            text_y = y + card_height // 2 - card_text.get_height() // 2
-            self.screen.blit(card_text, (text_x, text_y))
-
+            self.screen.blit(card_text, (x + card_width // 2 - card_text.get_width() // 2,
+                                         y + card_height // 2 - card_text.get_height() // 2))
             self.hand_rects.append((rect, i, card))
 
-        # ---------- calculate dynamic positions ----------
         hand_rows = max(1, (len(player.hand) + cards_per_row - 1) // cards_per_row)
         hand_bottom = hand_y + hand_rows * card_height + (hand_rows - 1) * row_gap
 
         face_up_y = hand_bottom + 70
         face_down_y = face_up_y + card_height + 40
 
-        # ---------- Face Up ----------
         face_up_title = self.small_font.render("Face Up", True, (255, 255, 255))
         self.screen.blit(face_up_title, (left_cards_x, face_up_y - 35))
 
         for i, card in enumerate(player.face_up):
             x = left_cards_x + i * (card_width + gap)
             rect = pygame.Rect(x, face_up_y, card_width, card_height)
-
             is_selected = (
-                    self.game.state == "playing"
-                    and self.selected_play_zone == "face_up"
-                    and i in self.selected_play_indices
-            )
+                        self.game.state == "playing" and self.selected_play_zone == "face_up" and i in self.selected_play_indices)
 
-            if is_selected:
-                pygame.draw.rect(self.screen, (255, 230, 120), rect)
-            else:
-                pygame.draw.rect(self.screen, (255, 255, 255), rect)
-
+            pygame.draw.rect(self.screen, (255, 230, 120) if is_selected else (255, 255, 255), rect)
             pygame.draw.rect(self.screen, (255, 0, 0), rect, 2)
 
             card_color = (255, 0, 0) if card.suit in ["Hearts", "Diamonds"] else (0, 0, 0)
             card_text = self.small_font.render(str(card), True, card_color)
-            text_x = x + card_width // 2 - card_text.get_width() // 2
-            text_y = face_up_y + card_height // 2 - card_text.get_height() // 2
-            self.screen.blit(card_text, (text_x, text_y))
-
+            self.screen.blit(card_text, (x + card_width // 2 - card_text.get_width() // 2,
+                                         face_up_y + card_height // 2 - card_text.get_height() // 2))
             self.face_up_rects.append((rect, i, card))
 
-        # ---------- Face Down ----------
         face_down_title = self.small_font.render("Face Down", True, (255, 255, 255))
         self.screen.blit(face_down_title, (left_cards_x, face_down_y - 35))
 
         for i, card in enumerate(player.face_down):
             x = left_cards_x + i * (card_width + gap)
             rect = pygame.Rect(x, face_down_y, card_width, card_height)
-
             pygame.draw.rect(self.screen, (60, 60, 180), rect)
             pygame.draw.rect(self.screen, (255, 0, 0), rect, 2)
-
             self.face_down_rects.append((rect, i))
 
     def draw_results_table(self):
         if self.game.state != "game_over":
             return
-
         title = self.font.render("Final Standings", True, (255, 255, 255))
         self.screen.blit(title, (850, 220))
-
         for i, name in enumerate(self.game.finish_order):
             text = self.small_font.render(f"{i + 1}. {name}", True, (255, 255, 255))
             self.screen.blit(text, (850, 270 + i * 35))
