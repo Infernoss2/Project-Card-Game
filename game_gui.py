@@ -10,60 +10,68 @@ class ShitheadGUI:
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
 
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.SysFont(None, 32)
+        self.font = pygame.font.SysFont("arial", 48, bold=True)
         self.small_font = pygame.font.SysFont("arial", 26)
 
         self.running = True
         self.message = ""
 
+        # מצבי תצוגה: MENU, WAITING, PLAYING
+        self.gui_state = "MENU"
+        self.target_players = 0  # כמה שחקנים המשתמש בחר
+
+        # כפתורי תפריט
+        self.btn_2p = pygame.Rect(self.WIDTH // 2 - 100, 300, 200, 60)
+        self.btn_3p = pygame.Rect(self.WIDTH // 2 - 100, 400, 200, 60)
+        self.btn_4p = pygame.Rect(self.WIDTH // 2 - 100, 500, 200, 60)
+
+        # משתני משחק קיימים
         self.hand_rects = []
         self.face_up_rects = []
         self.face_down_rects = []
         self.confirm_rect = pygame.Rect(980, 60, 170, 45)
         self.play_confirm_rect = pygame.Rect(980, 120, 170, 45)
         self.pile_rect = None
-
         self.selected_play_indices = []
         self.selected_play_zone = None
 
-        # -- פה קורה הקסם של הרשת --
+        # חיבור לרשת
         self.network = Network()
-        self.player_id = self.network.getP()
-        pygame.display.set_caption(f"Shithead - Player {self.player_id + 1}")
-        self.game = None  # אנחנו נקבל את המשחק מהשרת
+        self.player_id = None  # נקבל מהשרת רק כשהמשחק יתחיל
+        self.game = None
+
+        pygame.display.set_caption("Shithead Online")
 
     def run(self):
         while self.running:
-            # ה-GUI מושך את העדכון האחרון מהשרת ברציפות
-            new_game_state = self.network.send("get")
-            if new_game_state:
-                self.game = new_game_state
-
             self.handle_events()
+
+            # לוגיקת עדכון מהשרת
+            if self.gui_state == "WAITING" or self.gui_state == "PLAYING":
+                # אנחנו שולחים "get" כדי לקבל עדכון
+                response = self.network.send("get")
+                if response:
+                    if response.get("status") == "playing":
+                        self.gui_state = "PLAYING"
+                        self.game = response.get("game")
+                        self.player_id = response.get("player_id")
+                    elif response.get("status") == "waiting":
+                        self.message = response.get("message", "Waiting...")
+
             self.draw()
             pygame.display.flip()
             self.clock.tick(60)
-
         pygame.quit()
 
-    def toggle_card_selection(self, zone, index, card):
-        if self.selected_play_zone is None:
-            self.selected_play_zone = zone
-
-        if zone != self.selected_play_zone:
-            self.message = "You can only select cards from one zone."
-            return
-
-        if index in self.selected_play_indices:
-            self.selected_play_indices.remove(index)
-            if not self.selected_play_indices:
-                self.selected_play_zone = None
-            return
-
-        # כדי לא להסתבך עם לוגיקה מקומית, ניתן לשרת לבדוק אם זה חוקי מאוחר יותר,
-        # אבל נשמור על חוקיות בסיסית שאי אפשר לבחור קלפים שונים
-        self.selected_play_indices.append(index)
-        self.selected_play_indices.sort()
+    def handle_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if self.gui_state == "MENU":
+                    self.handle_menu_click(event.pos)
+                elif self.gui_state == "PLAYING":
+                    self.handle_mouse_click(event.pos)
 
     def handle_mouse_click(self, pos):
         if not self.game or len(self.game.Players) < 2:
@@ -117,23 +125,88 @@ class ShitheadGUI:
                     self.network.send({"action": "play_face_down", "index": index})
                 return
 
-    def handle_events(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                self.handle_mouse_click(event.pos)
+    def toggle_card_selection(self, zone, index, card):
+        # אם בחרנו קלף מאזור אחר (למשל עברנו מהיד ל-Face Up), נאפס את הבחירה
+        if self.selected_play_zone != zone:
+            self.selected_play_zone = zone
+            self.selected_play_indices.clear()
+
+        # אם הקלף כבר מסומן - נבטל את הסימון שלו
+        if index in self.selected_play_indices:
+            self.selected_play_indices.remove(index)
+            if not self.selected_play_indices:
+                self.selected_play_zone = None
+        else:
+            # אפשר לבחור רק קלפים מאותו ערך ביחד
+            if len(self.selected_play_indices) > 0:
+                first_idx = self.selected_play_indices[0]
+                player = self.game.Players[self.player_id]
+                first_card = player.hand[first_idx] if zone == "hand" else player.face_up[first_idx]
+
+                # מוסיפים רק אם זה אותו מספר כמו הקלף הראשון שבחרנו
+                if card.value == first_card.value:
+                    self.selected_play_indices.append(index)
+            else:
+                self.selected_play_indices.append(index)
+
+
+
+
+    def handle_menu_click(self, pos):
+        selection = None
+        if self.btn_2p.collidepoint(pos):
+            selection = 2
+        elif self.btn_3p.collidepoint(pos):
+            selection = 3
+        elif self.btn_4p.collidepoint(pos):
+            selection = 4
+
+        if selection:
+            self.target_players = selection
+            # שליחת בקשת הצטרפות לשרת
+            response = self.network.join_queue(selection)
+            if response:
+                self.gui_state = "WAITING"
+                self.message = response.get("message", "Searching for match...")
 
     def draw(self):
-        self.screen.fill((20, 120, 20))
+        self.screen.fill((20, 120, 20))  # רקע ירוק
+
+        if self.gui_state == "MENU":
+            self.draw_menu()
+        elif self.gui_state == "WAITING":
+            self.draw_waiting()
+        elif self.gui_state == "PLAYING":
+            self.draw_game_screen()
+
+    def draw_menu(self):
+        title = self.font.render("SHITHEAD ONLINE", True, (255, 255, 255))
+        self.screen.blit(title, (self.WIDTH // 2 - title.get_width() // 2, 150))
+
+        instruction = self.small_font.render("Select number of players:", True, (200, 200, 200))
+        self.screen.blit(instruction, (self.WIDTH // 2 - instruction.get_width() // 2, 240))
+
+        for btn, txt in [(self.btn_2p, "2 Players"), (self.btn_3p, "3 Players"), (self.btn_4p, "4 Players")]:
+            pygame.draw.rect(self.screen, (255, 255, 255), btn, border_radius=10)
+            pygame.draw.rect(self.screen, (0, 0, 0), btn, 2, border_radius=10)
+            text = self.small_font.render(txt, True, (0, 0, 0))
+            self.screen.blit(text, (btn.x + (btn.width - text.get_width()) // 2, btn.y + 15))
+
+    def draw_waiting(self):
+        # מסך טעינה פשוט
+        title = self.font.render("Looking for Players...", True, (255, 255, 255))
+        self.screen.blit(title, (self.WIDTH // 2 - title.get_width() // 2, 300))
+
+        msg = self.small_font.render(self.message, True, (255, 255, 0))
+        self.screen.blit(msg, (self.WIDTH // 2 - msg.get_width() // 2, 400))
+
+    def draw_game_screen(self):
+        # כאן נכנסת כל פונקציית ה-draw המקורית שלך!
+        # (draw_title, draw_pile, draw_current_player_cards וכו')
+        # שים לב להשתמש ב-self.player_id שקיבלנו מהשרת
+        if not self.game: return
+
         self.draw_title()
-
-        # מסך המתנה עד ששחקן נוסף מתחבר
-        if not self.game or len(self.game.Players) < 2:
-            wait_text = self.font.render("Waiting for another player to connect...", True, (255, 255, 255))
-            self.screen.blit(wait_text, (self.WIDTH // 2 - 200, self.HEIGHT // 2))
-            return
-
         self.draw_message()
         self.draw_state()
         self.draw_pile()
