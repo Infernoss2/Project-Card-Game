@@ -47,6 +47,41 @@ uvicorn main:app --reload
 ```
 Check it works: open http://127.0.0.1:8000/health → `{"status": "ok"}`
 
+**Tests** (from `backend/`)
+```bash
+pip install -r requirements-dev.txt
+pytest -v
+```
+
+---
+
+## 📡 WebSocket Protocol
+
+Connect to `ws://<host>/ws`. All messages are JSON.
+
+**Client → server**
+
+| Message | When |
+|---------|------|
+| `{"type": "join", "name": "Sagi", "players": 2}` | First message. `players` is 2, 3 or 4 |
+| `{"type": "setup_toggle", "index": 0}` | Setup: select / unselect a hand card as face-up |
+| `{"type": "setup_confirm"}` | Setup: confirm the 3 selected cards |
+| `{"type": "play", "zone": "hand", "indices": [0, 2]}` | Play cards of the same value from `hand` or `face_up` |
+| `{"type": "play_face_down", "index": 1}` | Flip and play a face-down card |
+| `{"type": "take_pile"}` | Pick up the pile |
+
+**Server → client**
+
+| Message | Meaning |
+|---------|---------|
+| `{"type": "joined", "you": "Sagi"}` | Your name in the game (made unique if taken) |
+| `{"type": "waiting", "joined": 1, "needed": 2}` | Waiting for more players |
+| `{"type": "state", ...}` | Full game state from your point of view — sent to everyone after every move |
+| `{"type": "error", "message": "..."}` | Your last action was rejected (only sent to you) |
+
+The `state` message contains your own `hand`, but only counts for other players' hands,
+so players can't see each other's cards.
+
 **Frontend**
 Open `web/index.html` in a browser.
 
@@ -71,7 +106,7 @@ Open `web/index.html` in a browser.
 ## 🚧 Status
 - [x] Desktop version (pygame + sockets)
 - [x] Phase 1 — Web project structure
-- [ ] Phase 2 — WebSocket backend
+- [x] Phase 2 — WebSocket backend
 - [ ] Phase 3 — Browser frontend
 - [ ] Phase 4 — Local 2-player test
 - [ ] Phase 5 — Deploy (Render + Netlify)
