@@ -18,7 +18,10 @@ Project-Card-Game/
 │   ├── main.py
 │   └── requirements.txt
 └── web/                           # Web version: HTML + JavaScript frontend
-    └── index.html
+    ├── index.html                 # Screens: menu, waiting room, card table, results
+    ├── style.css                  # Card-table design, responsive down to phone size
+    ├── app.js                     # Draws the state from the server, sends player actions
+    └── config.js                  # Backend URL (local vs deployed)
 ```
 
 ---
@@ -82,8 +85,12 @@ Connect to `ws://<host>/ws`. All messages are JSON.
 The `state` message contains your own `hand`, but only counts for other players' hands,
 so players can't see each other's cards.
 
-**Frontend**
-Open `web/index.html` in a browser.
+**Frontend** (in a second terminal, from the project root)
+```bash
+python3 -m http.server 5500 --directory web
+```
+Open http://localhost:5500 in two browser tabs, join a 2-player game in each, and play.
+`web/config.js` picks the backend URL: `ws://localhost:8000/ws` when running locally.
 
 ---
 
@@ -107,7 +114,7 @@ Open `web/index.html` in a browser.
 - [x] Desktop version (pygame + sockets)
 - [x] Phase 1 — Web project structure
 - [x] Phase 2 — WebSocket backend
-- [ ] Phase 3 — Browser frontend
+- [x] Phase 3 — Browser frontend
 - [ ] Phase 4 — Local 2-player test
 - [ ] Phase 5 — Deploy (Render + Netlify)
 - [ ] Phase 6 — Polish (demo GIF, architecture diagram)
