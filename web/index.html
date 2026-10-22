@@ -4,9 +4,130 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Shithead Card Game</title>
+  <meta name="description" content="Play Shithead (Palace) online with 2–4 friends.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='6' y='2' width='20' height='28' rx='3' fill='%23fbf7ec' stroke='%23b8913a' stroke-width='2'/%3E%3Ctext x='16' y='22' font-size='14' text-anchor='middle' fill='%23c2342b'%3E%E2%99%A5%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Shithead Card Game</h1>
-  <p>Web version coming soon.</p>
+  <!-- Menu: pick a name and how many players -->
+  <section id="screen-menu" class="screen center-screen">
+    <div class="panel menu-panel">
+      <div class="logo-cards" aria-hidden="true">
+        <span class="mini-card red">A<br>♥</span>
+        <span class="mini-card">K<br>♠</span>
+        <span class="mini-card red">10<br>♦</span>
+      </div>
+      <h1 class="title">Shithead</h1>
+      <p class="subtitle">Get rid of your cards. Don't be the last one holding them.</p>
+
+      <form id="join-form" class="join-form">
+        <label for="name-input" class="label">Your name</label>
+        <input id="name-input" class="input" maxlength="20" placeholder="e.g. Sagi" autocomplete="nickname" required>
+
+        <span class="label">Players</span>
+        <div class="segmented" role="radiogroup" aria-label="Number of players">
+          <label><input type="radio" name="players" value="2" checked><span>2</span></label>
+          <label><input type="radio" name="players" value="3"><span>3</span></label>
+          <label><input type="radio" name="players" value="4"><span>4</span></label>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-big">Find a game</button>
+        <p id="menu-error" class="form-error" role="alert"></p>
+      </form>
+
+      <button type="button" class="link-btn" data-open-rules>How to play</button>
+    </div>
+  </section>
+
+  <!-- Waiting room -->
+  <section id="screen-waiting" class="screen center-screen" hidden>
+    <div class="panel waiting-panel">
+      <div class="spinner" aria-hidden="true"><span></span><span></span><span></span></div>
+      <h2 class="title-sm">Waiting for players</h2>
+      <p id="waiting-text" class="subtitle">Connecting…</p>
+      <div id="waiting-seats" class="seats"></div>
+      <p class="hint">Open this page in another tab or send the link to a friend.</p>
+      <button type="button" class="btn btn-ghost" data-leave>Cancel</button>
+    </div>
+  </section>
+
+  <!-- The card table -->
+  <section id="screen-game" class="screen" hidden>
+    <header class="topbar">
+      <span class="brand">Shithead</span>
+      <div class="topbar-actions">
+        <button type="button" class="btn btn-ghost btn-small" data-open-rules>Rules</button>
+        <button type="button" class="btn btn-ghost btn-small" data-leave>Leave</button>
+      </div>
+    </header>
+
+    <div id="opponents" class="opponents"></div>
+
+    <div class="center-area">
+      <div class="stack-slot">
+        <div id="deck" class="deck"></div>
+        <span id="deck-label" class="slot-label"></span>
+      </div>
+      <div class="stack-slot">
+        <div id="pile" class="pile"></div>
+        <span id="pile-label" class="slot-label"></span>
+      </div>
+      <div class="stack-slot">
+        <div class="burned" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 3.5-1.5 5.5-3 7.5C7.2 11.8 6 13.6 6 16a6 6 0 0 0 12 0c0-2.2-.9-4-2.2-5.6-.4 1.4-1.2 2.4-2.3 2.9.6-3.3-.2-7.6-1.5-11.3Z"/></svg>
+        </div>
+        <span id="burned-label" class="slot-label"></span>
+      </div>
+    </div>
+    <p id="pile-hint" class="pile-hint"></p>
+    <p id="message" class="message" aria-live="polite"></p>
+
+    <div id="me" class="me-area">
+      <div id="turn-banner" class="turn-banner"></div>
+      <div id="my-table" class="table-cards"></div>
+      <div id="my-hand" class="hand"></div>
+      <div id="actions" class="actions"></div>
+    </div>
+  </section>
+
+  <!-- Game over -->
+  <div id="results" class="overlay" hidden>
+    <div class="panel results-panel">
+      <h2 id="results-title" class="title-sm">Game over</h2>
+      <p id="results-message" class="subtitle"></p>
+      <ol id="results-list" class="results-list"></ol>
+      <button type="button" class="btn btn-primary" data-leave>Back to menu</button>
+    </div>
+  </div>
+
+  <!-- Rules -->
+  <dialog id="rules" class="rules">
+    <h2 class="title-sm">How to play</h2>
+    <ul class="rules-list">
+      <li>Everyone gets 3 face-down cards and 6 cards in hand. Pick 3 of your hand cards to lay face-up on top of the face-down ones.</li>
+      <li>On your turn, play a card <b>equal or higher</b> than the top of the pile. You can play several cards of the same value at once.</li>
+      <li>Keep 3 cards in hand while the deck lasts. When your hand is empty, play your face-up cards, then your face-down cards blind.</li>
+      <li>Can't play? You pick up the whole pile.</li>
+    </ul>
+    <h3 class="rules-sub">Special cards</h3>
+    <ul class="rules-list special">
+      <li><b>2</b> Play on anything. Resets the pile.</li>
+      <li><b>3</b> Play on anything. Invisible: the next player beats the card under it.</li>
+      <li><b>7</b> Next card must be 7 or lower.</li>
+      <li><b>8</b> Skips the next player.</li>
+      <li><b>10</b> Play on anything. Burns the pile and you go again.</li>
+      <li><b>Q</b> Blocks 2, 3 and 10.</li>
+      <li><b>4 of a kind</b> in a row burns the pile.</li>
+    </ul>
+    <form method="dialog"><button class="btn btn-primary">Got it</button></form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="assertive"></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
